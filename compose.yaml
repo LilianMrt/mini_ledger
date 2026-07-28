@@ -7,3 +7,15 @@ services:
       POSTGRES_DB: mini_ledger_db
     ports:
       - "5432:5432"
+    
+  api:
+    build: . 
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=mini_ledger_db
+      - DB_USER=mini_ledger_user
+      - DB_PASSWORD=mini_ledger_password
+    depends_on:
+      - postgres
