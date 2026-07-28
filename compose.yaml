@@ -1,0 +1,9 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: mini_ledger_user
+      POSTGRES_PASSWORD: mini_ledger_password
+      POSTGRES_DB: mini_ledger_db
+    ports:
+      - "5432:5432"
