@@ -1,8 +1,12 @@
 import asyncio
 import os
+import sys
 import asyncpg
 
+
 async def main():
+    with_mock = "--with-mock" in sys.argv
+
     conn = await asyncpg.connect(
         host=os.getenv("DB_HOST"),
         port=5432,
@@ -12,11 +16,14 @@ async def main():
     )
 
     try:
-        with open("initialization/01_init.sql", "r") as f:
-            sql_commands = f.read()
+        with open("initialization/01_schema.sql", "r") as f:
+            await conn.execute(f.read())
+        print("Schema applied successfully!")
 
-        await conn.execute(sql_commands)
-        print("Database initialized successfully!")
+        if with_mock:
+            with open("initialization/02_mock_seed.sql", "r") as f:
+                await conn.execute(f.read())
+            print("Mock data seeded successfully!")
 
     finally:
         await conn.close()

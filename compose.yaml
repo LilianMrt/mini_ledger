@@ -1,21 +1,34 @@
 services:
   postgres:
     image: postgres:15
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: mini_ledger_user
-      POSTGRES_PASSWORD: mini_ledger_password
-      POSTGRES_DB: mini_ledger_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
-    
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api:
-    build: . 
+    build: .
+    restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
       - DB_HOST=postgres
-      - DB_NAME=mini_ledger_db
-      - DB_USER=mini_ledger_user
-      - DB_PASSWORD=mini_ledger_password
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

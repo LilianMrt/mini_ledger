@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List
 from decimal import Decimal
 from uuid import UUID
@@ -18,6 +18,20 @@ class EntryCreate(BaseModel):
 class TransactionCreate(BaseModel):
     description: str = Field(..., examples=["Revolut payment"])
     entries: List[EntryCreate]
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "description": "Request description",
+                    "entries": [
+                        {"account_id": "b0000000-0000-0000-0000-000000000002", "amount": "1500.0000"},
+                        {"account_id": "a0000000-0000-0000-0000-000000000001", "amount": "-1500.0000"},
+                    ],
+                }
+            ]
+        }
+    )
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_transaction(

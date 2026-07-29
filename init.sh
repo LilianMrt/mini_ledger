@@ -13,6 +13,6 @@ else
     exit 1
 fi
 
-python3 initialization/init_db.py
+python3 initialization/init_db.py --with-mock
 
 docker exec -it $(docker compose ps -q postgres) psql -U $DB_USER -d $DB_NAME -c "\dt"

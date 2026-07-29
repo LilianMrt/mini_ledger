@@ -1,0 +1,52 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          echo "${{ secrets.VPS_HOST_KEY }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Sync repository to VPS
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude '.env' \
+            -e "ssh -i ~/.ssh/id_deploy -p ${{ secrets.VPS_SSH_PORT }} -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
+            ./ "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/mini_ledger/"
+
+      - name: Deploy on VPS
+        env:
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p ${{ secrets.VPS_SSH_PORT }} -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -s <<EOF
+          set -euo pipefail
+          cd /opt/mini_ledger
+          umask 077
+          printf 'DB_HOST=postgres\nDB_NAME=%s\nDB_USER=%s\nDB_PASSWORD=%s\n' '${DB_NAME}' '${DB_USER}' '${DB_PASSWORD}' > .env
+          docker compose up -d --build --wait
+          docker compose run --rm api python3 initialization/init_db.py
+          docker image prune -f
+          EOF
