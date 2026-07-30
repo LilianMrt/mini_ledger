@@ -1,13 +1,18 @@
 # Mini Ledger
 
-[![Deploy](https://github.com/LilianMrt/mini_ledger/actions/workflows/deploy.yml/badge.svg)](https://github.com/LilianMrt/mini_ledger/actions/workflows/deploy.yml)
+A small asynchronous double-entry bookkeeping API built with FastAPI and Postgres. Every transaction is recorded as a set of balanced debit/credit entries, written atomically with idempotency-key support to make retries safe.
+
+🚀 **Live Demo:** [`https://miniledger.lilianmrt.duckdns.org/docs`](https://miniledger.lilianmrt.duckdns.org/docs) (Interactive Swagger UI hosted on a self-managed, secure VPS)
+
+### Key Architectural Showcases
+1. **Strict Data Correctness:** Double-entry ledger architecture (Debits/Credits balance to 0).
+2. **Idempotent Design:** Middleware to capture, cache, and safely replay API requests via unique `Idempotency-Key` headers.
+3. **Async Performance:** Built with FastAPI and `asyncpg` to unlock completely non-blocking database pools.
+
+[![Deploy](https://github.com/LilianMrt/mini_ledger/actions/workflows/deploy.yaml/badge.svg)](https://github.com/LilianMrt/mini_ledger/actions/workflows/deploy.yaml)
 ![Python](https://img.shields.io/badge/python-3-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791)
-
-A small double-entry bookkeeping API built with FastAPI and Postgres. Every transaction is recorded as a set of balanced debit/credit entries, written atomically with idempotency-key support to make retries safe.
-
-**Live demo:** [miniledger.lilianmrt.duckdns.org/docs](https://miniledger.lilianmrt.duckdns.org/docs) — interactive Swagger UI, deployed from `main` via the CI/CD pipeline described below.
 
 ## Why this project
 
@@ -41,6 +46,10 @@ initialization/
 ├── 01_schema.sql              # Tables + indexes (safe to re-run in production)
 ├── 02_mock_seed.sql           # Dev-only sample accounts
 └── init_db.py                 # Applies schema.sql, and mock_seed.sql with --with-mock
+tests/
+├── conftest.py                 # Testcontainers Postgres fixture + httpx client
+├── test_health.py
+└── test_transactions.py        # Balance invariant, idempotency, atomicity, precision
 ```
 
 ## Running locally
@@ -56,9 +65,20 @@ This starts Postgres and the API via Docker Compose, waits for the database to b
 
 The API is then available at `http://localhost:5000`.
 
+## Running tests
+
+Integration tests exercise the FastAPI app against a real, ephemeral Postgres instance (via [Testcontainers](https://testcontainers.com/)) — no need to run `./init.sh` first, just Docker running locally:
+
+```bash
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+Tests cover the double-entry balance invariant, idempotency-key replay, and that a failed write rolls back its idempotency record — not just HTTP status codes, but actual Postgres state after each request.
+
 ## Deploying to production
 
-`.github/workflows/deploy.yml` deploys to a VPS on every push to `main`: it rsyncs the repo over SSH, writes `.env` from GitHub secrets, runs `docker compose up -d --build --wait`, and applies `01_schema.sql` via `init_db.py`.
+`.github/workflows/deploy.yaml` runs on every push/PR to `main`: a `test` job runs the suite above, and a `deploy` job — gated on `needs: test`, and skipped on pull requests — rsyncs the repo to the VPS over SSH, writes `.env` from GitHub secrets, runs `docker compose up -d --build --wait`, and applies `01_schema.sql` via `init_db.py`. A failing test suite blocks deployment.
 
 Production topology: `nginx` + `certbot` on the VPS host terminate TLS and reverse-proxy to the `api` container, which — like `postgres` — is bound to `127.0.0.1` only and never exposed directly to the internet.
 

@@ -9,7 +9,7 @@ async def init_db_pool():
     if not _pool:
         _pool = await asyncpg.create_pool(
             host= os.getenv("DB_HOST"),
-            port=5432,
+            port=int(os.getenv("DB_PORT", 5432)),
             database=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
